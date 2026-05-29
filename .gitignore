@@ -38,3 +38,7 @@ wheels/
 # OS
 .DS_Store
 Thumbs.db
+
+.DS_Store
+Thumbs.db
+>>>>>>> 7a9de84a874e53cbea22a8300b85f7ac514b151f
