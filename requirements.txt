@@ -1,0 +1,16 @@
+# NEXUS AI Assistant — Python Dependencies
+# ==========================================
+# Core (required)
+requests>=2.31.0          # HTTP calls to OpenRouter & Ollama
+python-dotenv>=1.0.0      # Load environment variables from .env file
+
+# Text-to-Speech (optional — graceful fallback if missing)
+pyttsx3>=2.90             # Local TTS (no API key needed)
+
+# Speech Recognition (optional)
+SpeechRecognition>=3.10.0 # Google STT (free, no key)
+# pyaudio>=0.2.13         # Microphone input driver (optional; remove for Render deploy)
+
+# Optional: faster local model via Ollama
+# Install Ollama from https://ollama.ai  then run:
+#   ollama pull tinyllama
