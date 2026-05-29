@@ -1,6 +1,8 @@
 # NEXUS AI Assistant — Python Dependencies
 # ==========================================
 # Core (required)
+Flask>=2.0
+flask-sock>=0.6.0
 requests>=2.31.0          # HTTP calls to OpenRouter & Ollama
 python-dotenv>=1.0.0      # Load environment variables from .env file
 
