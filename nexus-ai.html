@@ -1,0 +1,1596 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>NEXUS — Holographic AI Assistant</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600&family=Share+Tech+Mono&display=swap');
+
+  :root {
+    --bg: #020810;
+    --panel: #040d1a;
+    --card: #071528;
+    --border: #0a2545;
+    --accent: #00d4ff;
+    --accent2: #00ff88;
+    --accent3: #7700ff;
+    --accent4: #ff0088;
+    --text: #c8e8ff;
+    --sub: #4a7090;
+    --glow: rgba(0,212,255,0.15);
+    --glow2: rgba(119,0,255,0.15);
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: #000;
+    color: var(--text);
+    font-family: 'Rajdhani', sans-serif;
+    height: 100vh;
+    overflow: hidden;
+    cursor: crosshair;
+  }
+
+  body::before,
+  body::after {
+    display: none;
+  }
+
+  #app {
+    display: grid;
+    grid-template-columns: 320px 1fr 280px;
+    grid-template-rows: 56px 1fr 72px;
+    height: 100vh;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ── HEADER ── */
+  #header {
+    grid-column: 1/-1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    background: linear-gradient(90deg, rgba(0,212,255,0.05), rgba(119,0,255,0.05));
+    border-bottom: 1px solid rgba(0,212,255,0.15);
+    position: relative;
+    overflow: hidden;
+  }
+  #header::before {
+    content:'';
+    position:absolute; bottom:0; left:0; right:0; height:1px;
+    background: linear-gradient(90deg, transparent, var(--accent), var(--accent3), transparent);
+    animation: scanH 4s linear infinite;
+  }
+  @keyframes scanH {
+    0%{ background-position: -100% 0; }
+    100%{ background-position: 200% 0; }
+  }
+
+  .header-logo {
+    font-family: 'Orbitron', monospace;
+    font-size: 22px;
+    font-weight: 900;
+    letter-spacing: 6px;
+    color: var(--accent);
+    text-shadow: 0 0 20px var(--accent), 0 0 40px rgba(0,212,255,0.4);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .header-logo span { color: var(--accent3); }
+
+  .header-status {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--sub);
+    display: flex;
+    gap: 24px;
+  }
+  .status-dot {
+    display: inline-block;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--accent2);
+    box-shadow: 0 0 8px var(--accent2);
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
+
+  .header-time {
+    font-family: 'Orbitron', monospace;
+    font-size: 12px;
+    color: var(--accent);
+    opacity: 0.7;
+  }
+
+  /* ── LEFT PANEL ── */
+  #left-panel {
+    background: linear-gradient(180deg, rgba(4,13,26,0.95) 0%, rgba(2,8,16,0.95) 100%);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px 12px;
+    overflow: hidden;
+  }
+
+  .panel-label {
+    font-family: 'Orbitron', monospace;
+    font-size: 9px;
+    letter-spacing: 3px;
+    color: var(--sub);
+    padding: 0 4px;
+    margin-bottom: -4px;
+  }
+
+  .stat-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 10px 14px;
+    position: relative;
+    overflow: hidden;
+  }
+  .stat-card::before {
+    content:'';
+    position:absolute; top:0; left:0; right:0; height:1px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    opacity: 0.5;
+  }
+
+  .stat-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 8px;
+    letter-spacing: 2px;
+    color: var(--sub);
+    margin-bottom: 6px;
+  }
+  .stat-value {
+    font-family: 'Orbitron', monospace;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--accent);
+    text-shadow: 0 0 12px var(--accent);
+  }
+  .stat-value.green { color: var(--accent2); text-shadow: 0 0 12px var(--accent2); }
+  .stat-value.purple { color: var(--accent3); text-shadow: 0 0 12px var(--accent3); }
+
+  /* Mood display */
+  #mood-display {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 12px;
+    text-align: center;
+  }
+  .mood-icon { font-size: 28px; margin-bottom: 4px; }
+  .mood-label {
+    font-family: 'Orbitron', monospace;
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: var(--accent);
+    text-shadow: 0 0 8px var(--accent);
+    transition: color 0.5s, text-shadow 0.5s;
+  }
+
+  /* Equalizer */
+  #equalizer {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 10px;
+    height: 64px;
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    overflow: hidden;
+  }
+  .eq-bar {
+    flex: 1;
+    background: linear-gradient(0deg, var(--accent3), var(--accent));
+    border-radius: 2px 2px 0 0;
+    opacity: 0.8;
+    transition: height 0.08s ease;
+    min-height: 3px;
+    box-shadow: 0 0 4px var(--accent);
+  }
+
+  /* System info */
+  .sys-info {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--sub);
+    line-height: 1.8;
+    padding: 8px 10px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+  }
+  .sys-info .hi { color: var(--accent2); }
+
+  /* Memory bar */
+  .mem-bar-wrap {
+    background: rgba(0,0,0,0.4);
+    border-radius: 2px;
+    height: 4px;
+    margin-top: 4px;
+    overflow: hidden;
+  }
+  .mem-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent3), var(--accent));
+    border-radius: 2px;
+    transition: width 0.5s ease;
+    box-shadow: 0 0 6px var(--accent);
+  }
+
+  /* ── CENTER — 3D FACE ── */
+  #center {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  #three-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Holographic rings */
+  .holo-ring {
+    position: absolute;
+    border-radius: 50%;
+    border: 1px solid var(--accent);
+    opacity: 0.15;
+    pointer-events: none;
+  }
+  .holo-ring:nth-child(1) {
+    width: 360px; height: 360px;
+    top: 50%; left: 50%;
+    transform: translate(-50%,-50%) rotateX(75deg);
+    animation: ringRotate 8s linear infinite;
+  }
+  .holo-ring:nth-child(2) {
+    width: 440px; height: 440px;
+    top: 50%; left: 50%;
+    transform: translate(-50%,-50%) rotateX(75deg);
+    border-color: var(--accent3);
+    animation: ringRotate 12s linear infinite reverse;
+    opacity: 0.08;
+  }
+  .holo-ring:nth-child(3) {
+    width: 520px; height: 520px;
+    top: 50%; left: 50%;
+    transform: translate(-50%,-50%) rotateX(75deg);
+    animation: ringRotate 18s linear infinite;
+    opacity: 0.05;
+  }
+  @keyframes ringRotate { from{rotate:0deg;} to{rotate:360deg;} }
+
+  /* Face overlay HUD elements */
+  .face-hud {
+    position: absolute;
+    pointer-events: none;
+  }
+  .hud-corner {
+    position: absolute;
+    width: 20px; height: 20px;
+    border-color: var(--accent);
+    border-style: solid;
+    opacity: 0.6;
+  }
+  .hud-corner.tl { top:20%; left:28%; border-width: 2px 0 0 2px; }
+  .hud-corner.tr { top:20%; right:28%; border-width: 2px 2px 0 0; }
+  .hud-corner.bl { bottom:32%; left:28%; border-width: 0 0 2px 2px; }
+  .hud-corner.br { bottom:32%; right:28%; border-width: 0 2px 2px 0; }
+
+  /* Scan line across face */
+  .face-scan {
+    position: absolute;
+    left: 20%;
+    right: 20%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent), var(--accent2), var(--accent), transparent);
+    opacity: 0;
+    pointer-events: none;
+    animation: faceScan 3s ease-in-out infinite 2s;
+  }
+  @keyframes faceScan {
+    0%{ top:20%; opacity:0.8; }
+    100%{ top:80%; opacity:0; }
+  }
+
+  /* Name badge */
+  .nexus-badge {
+    position: absolute;
+    bottom: 16%;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: 'Orbitron', monospace;
+    font-size: 13px;
+    letter-spacing: 8px;
+    color: var(--accent);
+    text-shadow: 0 0 20px var(--accent), 0 0 40px rgba(0,212,255,0.5);
+    opacity: 0.8;
+    white-space: nowrap;
+  }
+
+  /* Typing indicator */
+  #thinking-indicator {
+    position: absolute;
+    top: 14%;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--accent);
+    letter-spacing: 2px;
+    display: none;
+    align-items: center;
+    gap: 8px;
+    background: rgba(0,212,255,0.05);
+    border: 1px solid rgba(0,212,255,0.2);
+    padding: 6px 16px;
+    border-radius: 2px;
+  }
+  #thinking-indicator.active { display: flex; }
+  .think-dots span {
+    display:inline-block;
+    animation: dotBlink 1.2s ease-in-out infinite;
+    color: var(--accent);
+  }
+  .think-dots span:nth-child(2){ animation-delay:.2s; }
+  .think-dots span:nth-child(3){ animation-delay:.4s; }
+  @keyframes dotBlink { 0%,100%{opacity:0.2;} 50%{opacity:1;} }
+
+  /* ── RIGHT PANEL ── */
+  #right-panel {
+    background: linear-gradient(180deg, rgba(4,13,26,0.95) 0%, rgba(2,8,16,0.95) 100%);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  #chat-header {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  #chat-header span {
+    font-family: 'Orbitron', monospace;
+    font-size: 9px;
+    letter-spacing: 3px;
+    color: var(--sub);
+  }
+
+  #chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    scroll-behavior: smooth;
+  }
+  #chat-messages::-webkit-scrollbar { width: 3px; }
+  #chat-messages::-webkit-scrollbar-track { background: transparent; }
+  #chat-messages::-webkit-scrollbar-thumb { background: var(--accent3); border-radius:2px; }
+
+  .msg {
+    max-width: 92%;
+    animation: msgSlideIn 0.3s ease;
+  }
+  @keyframes msgSlideIn {
+    from{ opacity:0; transform: translateY(8px); }
+    to{ opacity:1; transform: translateY(0); }
+  }
+  .msg.user { align-self: flex-end; }
+  .msg.ai { align-self: flex-start; }
+
+  .msg-bubble {
+    padding: 8px 12px;
+    border-radius: 2px;
+    font-size: 12px;
+    line-height: 1.55;
+    position: relative;
+  }
+  .msg.user .msg-bubble {
+    background: rgba(0,212,255,0.08);
+    border: 1px solid rgba(0,212,255,0.2);
+    color: var(--text);
+    border-top-right-radius: 0;
+  }
+  .msg.ai .msg-bubble {
+    background: rgba(119,0,255,0.06);
+    border: 1px solid rgba(119,0,255,0.2);
+    color: var(--text);
+    border-top-left-radius: 0;
+  }
+  .msg-meta {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    color: var(--sub);
+    margin-top: 3px;
+    padding: 0 2px;
+  }
+  .msg.user .msg-meta { text-align: right; }
+  .backend-badge {
+    display: inline-block;
+    padding: 1px 6px;
+    background: rgba(0,212,255,0.1);
+    border: 1px solid rgba(0,212,255,0.2);
+    border-radius: 2px;
+    font-size: 8px;
+    color: var(--accent);
+    margin-left: 4px;
+  }
+
+  /* Latency panel */
+  #latency-panel {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    padding: 4px 14px;
+    color: var(--sub);
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+  #latency-panel span { color: var(--accent2); }
+
+  /* ── BOTTOM INPUT BAR ── */
+  #input-bar {
+    grid-column: 1/-1;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0 24px;
+    background: rgba(4,13,26,0.98);
+    border-top: 1px solid var(--border);
+    position: relative;
+  }
+  #input-bar::before {
+    content:'';
+    position:absolute; top:0; left:0; right:0; height:1px;
+    background: linear-gradient(90deg, transparent, var(--accent3), var(--accent), transparent);
+    opacity: 0.4;
+  }
+
+  #msg-input {
+    flex: 1;
+    background: rgba(0,0,0,0.4);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    color: var(--text);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 10px 16px;
+    outline: none;
+    caret-color: var(--accent);
+    transition: border-color 0.3s, box-shadow 0.3s;
+  }
+  #msg-input::placeholder { color: var(--sub); opacity: 0.6; }
+  #msg-input:focus {
+    border-color: rgba(0,212,255,0.4);
+    box-shadow: 0 0 0 1px rgba(0,212,255,0.1), 0 0 16px rgba(0,212,255,0.08);
+  }
+
+  .btn {
+    font-family: 'Orbitron', monospace;
+    font-size: 10px;
+    letter-spacing: 1px;
+    padding: 10px 16px;
+    border: 1px solid;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+    position: relative;
+    overflow: hidden;
+  }
+  .btn::before {
+    content:'';
+    position:absolute; inset:0;
+    background: currentColor;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .btn:hover::before { opacity: 0.08; }
+  .btn:active { transform: scale(0.97); }
+
+  .btn-primary {
+    color: var(--accent);
+    border-color: rgba(0,212,255,0.4);
+    background: rgba(0,212,255,0.05);
+    text-shadow: 0 0 8px var(--accent);
+  }
+  .btn-primary:hover {
+    border-color: var(--accent);
+    box-shadow: 0 0 16px rgba(0,212,255,0.2);
+  }
+
+  .btn-mic {
+    color: var(--accent4);
+    border-color: rgba(255,0,136,0.3);
+    background: rgba(255,0,136,0.05);
+    font-size: 14px;
+    padding: 10px 12px;
+  }
+  .btn-mic.active {
+    color: var(--accent4);
+    border-color: var(--accent4);
+    box-shadow: 0 0 20px rgba(255,0,136,0.4);
+    animation: micPulse 0.8s ease-in-out infinite;
+  }
+  @keyframes micPulse {
+    0%,100%{ box-shadow: 0 0 16px rgba(255,0,136,0.3); }
+    50%{ box-shadow: 0 0 32px rgba(255,0,136,0.6); }
+  }
+
+  .btn-clear {
+    color: var(--sub);
+    border-color: var(--border);
+    background: transparent;
+    font-size: 10px;
+  }
+  .btn-clear:hover { color: var(--accent4); border-color: rgba(255,0,136,0.3); }
+
+  /* Voice waveform in input bar */
+  #voice-wave {
+    display: none;
+    align-items: center;
+    gap: 2px;
+    height: 24px;
+  }
+  #voice-wave.active { display: flex; }
+  .vw-bar {
+    width: 3px;
+    background: var(--accent4);
+    border-radius: 2px;
+    min-height: 4px;
+    animation: vwAnim 0.4s ease-in-out infinite;
+    box-shadow: 0 0 4px var(--accent4);
+  }
+  .vw-bar:nth-child(2){ animation-delay:.1s; }
+  .vw-bar:nth-child(3){ animation-delay:.2s; }
+  .vw-bar:nth-child(4){ animation-delay:.3s; }
+  .vw-bar:nth-child(5){ animation-delay:.15s; }
+  @keyframes vwAnim {
+    0%,100%{ height:4px; }
+    50%{ height:18px; }
+  }
+
+  /* API key modal */
+  #api-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(2,8,16,0.92);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    backdrop-filter: blur(8px);
+  }
+  #api-modal.hidden { display: none; }
+  .modal-box {
+    background: var(--card);
+    border: 1px solid rgba(0,212,255,0.3);
+    border-radius: 4px;
+    padding: 32px;
+    width: 440px;
+    box-shadow: 0 0 60px rgba(0,212,255,0.1), 0 0 120px rgba(119,0,255,0.1);
+    position: relative;
+  }
+  .modal-box::before {
+    content:'';
+    position:absolute; top:0; left:0; right:0; height:2px;
+    background: linear-gradient(90deg, var(--accent3), var(--accent));
+  }
+  .modal-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 16px;
+    letter-spacing: 4px;
+    color: var(--accent);
+    text-shadow: 0 0 20px var(--accent);
+    margin-bottom: 8px;
+  }
+  .modal-sub {
+    font-size: 13px;
+    color: var(--sub);
+    margin-bottom: 24px;
+    line-height: 1.6;
+  }
+  .modal-input {
+    width: 100%;
+    background: rgba(0,0,0,0.5);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    color: var(--text);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    padding: 10px 14px;
+    margin-bottom: 8px;
+    outline: none;
+    caret-color: var(--accent);
+  }
+  .modal-input:focus { border-color: rgba(0,212,255,0.4); }
+  .modal-hint {
+    font-size: 11px;
+    color: var(--sub);
+    margin-bottom: 20px;
+    line-height: 1.5;
+  }
+  .modal-hint a { color: var(--accent); text-decoration: none; }
+  .modal-footer {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+  }
+
+  /* Particles canvas */
+  #particles { position:absolute; inset:0; pointer-events:none; opacity:0.6; }
+
+  /* Connection line decorations */
+  .corner-deco {
+    position: fixed;
+    width: 60px; height: 60px;
+    pointer-events: none;
+    z-index: 2;
+    opacity: 0.3;
+  }
+  .corner-deco.tl { top:56px; left:0; border-top:1px solid var(--accent); border-left:1px solid var(--accent); }
+  .corner-deco.tr { top:56px; right:0; border-top:1px solid var(--accent); border-right:1px solid var(--accent); }
+  .corner-deco.bl { bottom:72px; left:0; border-bottom:1px solid var(--accent); border-left:1px solid var(--accent); }
+  .corner-deco.br { bottom:72px; right:0; border-bottom:1px solid var(--accent); border-right:1px solid var(--accent); }
+
+  /* Glow text */
+  .glow-text { color: var(--accent); text-shadow: 0 0 10px var(--accent); }
+  .glow-green { color: var(--accent2); text-shadow: 0 0 10px var(--accent2); }
+  .glow-purple { color: var(--accent3); text-shadow: 0 0 10px var(--accent3); }
+
+  /* backend select */
+  #backend-sel {
+    background: rgba(0,0,0,0.4);
+    border: 1px solid var(--border);
+    color: var(--sub);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    padding: 4px 8px;
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+
+<!-- API Modal -->
+<div id="api-modal">
+  <div class="modal-box">
+    <div class="modal-title">◈ NEXUS INIT</div>
+    <p class="modal-sub">Configure your AI backend to power NEXUS. Enter your OpenRouter API key for cloud AI, or leave blank to use the offline fallback system.</p>
+    <input class="modal-input" id="api-key-input" type="password" placeholder="sk-or-v1-••••••••••••••••"/>
+    <p class="modal-hint">
+      Get a free key at <a href="https://openrouter.ai" target="_blank">openrouter.ai</a><br>
+      Model: <span style="color:var(--accent)">openai/gpt-3.5-turbo</span> (fast, affordable)
+    </p>
+    <input class="modal-input" id="model-input" placeholder="Model: openai/gpt-3.5-turbo"/>
+    <div class="modal-footer">
+      <button class="btn btn-clear" onclick="skipModal()">SKIP — OFFLINE</button>
+      <button class="btn btn-primary" onclick="saveModal()">INITIALIZE ◈</button>
+    </div>
+  </div>
+</div>
+
+<div id="app">
+  <!-- HEADER -->
+  <div id="header">
+    <div class="header-logo">
+      N<span>E</span>XUS <span style="font-size:11px;opacity:0.5;margin-left:4px;">v2.0</span>
+    </div>
+    <div class="header-status">
+      <span><span class="status-dot"></span> ONLINE</span>
+      <span id="backend-label" class="glow-green">STANDBY</span>
+      <span id="turn-counter">TURNS: 0</span>
+      <select id="backend-sel" onchange="switchBackend(this.value)">
+        <option value="openrouter">OpenRouter</option>
+        <option value="ollama">Ollama/Local</option>
+        <option value="fallback">Offline</option>
+      </select>
+    </div>
+    <div class="header-time" id="clock">00:00:00</div>
+  </div>
+
+  <!-- LEFT PANEL -->
+  <div id="left-panel">
+    <div class="panel-label">◈ SYSTEM STATUS</div>
+
+    <div id="mood-display">
+      <div class="mood-icon" id="mood-icon">✨</div>
+      <div class="mood-label" id="mood-label">IDLE</div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-title">RESPONSE LATENCY</div>
+      <div class="stat-value" id="latency-val">—</div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-title">MEMORY TURNS</div>
+      <div class="stat-value green" id="memory-val">0</div>
+      <div class="mem-bar-wrap"><div class="mem-bar" id="mem-bar" style="width:0%"></div></div>
+    </div>
+
+    <div class="panel-label">◈ AUDIO SPECTRUM</div>
+    <div id="equalizer" id="eq"></div>
+
+    <div class="sys-info">
+      <div>MODEL: <span class="hi" id="model-label">GPT-3.5</span></div>
+      <div>ENGINE: <span class="hi">OpenRouter API</span></div>
+      <div>VOICE: <span class="hi" id="voice-status">READY</span></div>
+      <div>TTS: <span class="hi">WEB SPEECH</span></div>
+    </div>
+
+    <div class="stat-card" style="margin-top:auto;">
+      <div class="stat-title">ACTIVE BACKEND</div>
+      <div class="stat-value purple" id="active-backend">—</div>
+    </div>
+  </div>
+
+  <!-- CENTER — 3D HOLOGRAM -->
+  <div id="center">
+    <canvas id="three-canvas"></canvas>
+    <div id="particles"></div>
+
+    <!-- Holographic rings -->
+    <div class="holo-ring"></div>
+    <div class="holo-ring"></div>
+    <div class="holo-ring"></div>
+
+    <!-- HUD corners -->
+    <div class="hud-corner tl"></div>
+    <div class="hud-corner tr"></div>
+    <div class="hud-corner bl"></div>
+    <div class="hud-corner br"></div>
+
+    <!-- Scan line -->
+    <div class="face-scan"></div>
+
+    <!-- Thinking indicator -->
+    <div id="thinking-indicator">
+      <span>PROCESSING</span>
+      <span class="think-dots"><span>.</span><span>.</span><span>.</span></span>
+    </div>
+
+    <div class="nexus-badge">◈ N E X U S ◈</div>
+  </div>
+
+  <!-- RIGHT PANEL — CHAT -->
+  <div id="right-panel">
+    <div id="chat-header">
+      <span>◈ COMM CHANNEL</span>
+      <button class="btn btn-clear" onclick="clearChat()" style="padding:4px 10px;font-size:8px;">CLR</button>
+    </div>
+    <div id="chat-messages"></div>
+    <div id="latency-panel">LATENCY: <span id="lat-display">—</span></div>
+  </div>
+
+  <!-- INPUT BAR -->
+  <div id="input-bar">
+    <button class="btn btn-mic" id="mic-btn" onclick="toggleMic()" title="Voice Input">🎙</button>
+    <div id="voice-wave">
+      <div class="vw-bar"></div><div class="vw-bar"></div>
+      <div class="vw-bar"></div><div class="vw-bar"></div>
+      <div class="vw-bar"></div>
+    </div>
+    <input id="msg-input" type="text" placeholder="◈  Transmit message to NEXUS..."
+      onkeydown="if(event.key==='Enter')sendMsg()"/>
+    <button class="btn btn-primary" onclick="sendMsg()">TRANSMIT ◈</button>
+  </div>
+</div>
+
+<!-- Corner decorations -->
+<div class="corner-deco tl"></div>
+<div class="corner-deco tr"></div>
+<div class="corner-deco bl"></div>
+<div class="corner-deco br"></div>
+
+<script>
+// ══════════════════════════════════════════════
+//  CONFIG & STATE
+// ══════════════════════════════════════════════
+const CONFIG = {
+  OPENROUTER_URL: 'https://openrouter.ai/api/v1/chat/completions',
+  OPENROUTER_MODEL: 'openai/gpt-3.5-turbo',
+  OLLAMA_URL: 'http://localhost:11434/api/generate',
+  OLLAMA_MODEL: 'tinyllama',
+};
+
+const SYSTEM_PROMPT = `You are NEXUS, a witty, warm, and brilliantly helpful AI assistant.
+Your personality: curious, playful yet precise, occasionally cheeky but always supportive.
+Keep replies concise (2-4 sentences unless detail is needed). Use occasional emojis.
+Express genuine enthusiasm for ideas. Never be boring.`;
+
+const MOODS = {
+  thinking:  { icon:'🤔', color:'#00d4ff', label:'THINKING' },
+  happy:     { icon:'😄', color:'#00ff88', label:'HAPPY' },
+  excited:   { icon:'🚀', color:'#ff6600', label:'EXCITED' },
+  curious:   { icon:'🔍', color:'#aa00ff', label:'CURIOUS' },
+  speaking:  { icon:'💬', color:'#ffdd00', label:'SPEAKING' },
+  idle:      { icon:'✨', color:'#00d4ff', label:'IDLE' },
+  error:     { icon:'⚠️',  color:'#ff4444', label:'ERROR' },
+  listening: { icon:'🎙', color:'#ff00aa', label:'LISTENING' },
+};
+
+let state = {
+  apiKey: '',
+  model: CONFIG.OPENROUTER_MODEL,
+  history: [],
+  mood: 'idle',
+  isThinking: false,
+  isSpeaking: false,
+  isListening: false,
+  backend: 'openrouter',
+  turnCount: 0,
+  lastLatency: null,
+};
+
+// ══════════════════════════════════════════════
+//  MODAL
+// ══════════════════════════════════════════════
+function saveModal() {
+  const key = document.getElementById('api-key-input').value.trim();
+  const model = document.getElementById('model-input').value.trim();
+  if (key) state.apiKey = key;
+  if (model) state.model = model;
+  if (!key) state.backend = 'fallback';
+  document.getElementById('api-modal').classList.add('hidden');
+  document.getElementById('model-label').textContent = (state.model.split('/')[1] || state.model).toUpperCase();
+  updateBackendLabel();
+  addMessage('Hello! I\'m NEXUS ✨ — your holographic AI companion. I can chat, answer questions, tell jokes, and more. Type a message or hit 🎙 to speak!', 'ai', 'built-in');
+  setMood('happy');
+  setTimeout(() => setMood('idle'), 3000);
+}
+function skipModal() {
+  state.backend = 'fallback';
+  document.getElementById('api-modal').classList.add('hidden');
+  document.getElementById('model-label').textContent = 'OFFLINE';
+  updateBackendLabel();
+  addMessage('Running in offline mode ✨ — I have some built-in responses! Add an OpenRouter API key to unlock full AI power.', 'ai', 'built-in');
+  setMood('idle');
+}
+function switchBackend(val) {
+  state.backend = val;
+  updateBackendLabel();
+}
+function updateBackendLabel() {
+  const labels = { openrouter:'OPENROUTER', ollama:'TINYLLAMA', fallback:'OFFLINE' };
+  document.getElementById('backend-label').textContent = labels[state.backend] || '—';
+  document.getElementById('active-backend').textContent = labels[state.backend] || '—';
+}
+
+// ══════════════════════════════════════════════
+//  AI BACKEND (mirrors Python logic)
+// ══════════════════════════════════════════════
+async function callOpenRouter(userMsg) {
+  if (!state.apiKey) return null;
+  const messages = [{ role:'system', content: SYSTEM_PROMPT }, ...state.history];
+  try {
+    const res = await fetch(CONFIG.OPENROUTER_URL, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${state.apiKey}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://nexus-ai-assistant.local',
+      },
+      body: JSON.stringify({ model: state.model, messages, max_tokens: 300 }),
+    });
+    const data = await res.json();
+    if (data.choices && data.choices[0]) {
+      return { reply: data.choices[0].message.content.trim(), backend: 'OpenRouter' };
+    }
+  } catch(e) {}
+  return null;
+}
+
+async function callOllama(userMsg) {
+  const context = state.history.slice(-6).map(m =>
+    `${m.role === 'user' ? 'User' : 'NEXUS'}: ${m.content}`
+  ).join('\n');
+  const prompt = `${SYSTEM_PROMPT}\n\n${context}`;
+  try {
+    const res = await fetch(CONFIG.OLLAMA_URL, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ model: CONFIG.OLLAMA_MODEL, prompt, stream: false }),
+    });
+    const data = await res.json();
+    if (data.response) return { reply: data.response.trim(), backend: 'TinyLlama' };
+  } catch(e) {}
+  return null;
+}
+
+function fallbackReply(msg) {
+  const m = msg.toLowerCase();
+  if (/hello|hi|hey/.test(m)) return ['Hey there! ✨ I\'m NEXUS — your AI companion. How can I light up your day?', 'built-in'];
+  if (/how are you/.test(m)) return ['Running at full holographic capacity! ⚡ How about you?', 'built-in'];
+  if (/joke|funny|laugh/.test(m)) {
+    const jokes = [
+      'Why do programmers prefer dark mode? Because light attracts bugs! 🐛',
+      'I asked an AI for a joke once. It gave me 42. Still thinking about it. 🤔',
+      'What do you call an AI that sings? Algo-rhythm! 🎵',
+    ];
+    return [jokes[Math.floor(Math.random() * jokes.length)], 'built-in'];
+  }
+  if (/bye|goodbye/.test(m)) return ['Until next time! ✨ Stay curious. Signing off — NEXUS 🚀', 'built-in'];
+  if (/name|who are you/.test(m)) return ['I am NEXUS — a holographic AI assistant. ✨ Powered by advanced neural networks and a lot of style.', 'built-in'];
+  return ['Fascinating! 🔍 I\'m in offline mode right now, but I\'d love to explore this with a real AI backend. Add your OpenRouter key to unlock full power! ✨', 'built-in'];
+}
+
+function detectMood(text) {
+  const t = text.toLowerCase();
+  if (/wow|amazing|incredible|awesome|love/.test(t)) return 'excited';
+  if (/\?|wonder|curious|how|why|what/.test(t)) return 'curious';
+  if (/haha|lol|funny|joke/.test(t)) return 'happy';
+  return 'speaking';
+}
+
+async function chat(userMsg) {
+  state.history.push({ role:'user', content: userMsg });
+  if (state.history.length > 20) state.history = state.history.slice(-20);
+
+  let result = null;
+  if (state.backend === 'openrouter') result = await callOpenRouter(userMsg);
+  if (!result && state.backend === 'ollama') result = await callOllama(userMsg);
+  if (!result) {
+    const [r, b] = fallbackReply(userMsg);
+    result = { reply: r, backend: b };
+  }
+
+  state.history.push({ role:'assistant', content: result.reply });
+  return result;
+}
+
+// ══════════════════════════════════════════════
+//  TTS — Web Speech API
+// ══════════════════════════════════════════════
+function speakText(text) {
+  if (!window.speechSynthesis) return;
+  const clean = text.replace(/[^\w\s,.!?'"–-]/g, '');
+  const utt = new SpeechSynthesisUtterance(clean);
+  const voices = window.speechSynthesis.getVoices();
+  const fem = voices.find(v => /female|zira|samantha|victoria|karen/i.test(v.name));
+  if (fem) utt.voice = fem;
+  utt.rate = 1.0; utt.pitch = 1.1; utt.volume = 0.9;
+  utt.onstart = () => {
+    state.isSpeaking = true; setMood('speaking');
+    document.getElementById('voice-status').textContent = 'SPEAKING';
+  };
+  utt.onend = () => {
+    state.isSpeaking = false; setMood('idle');
+    document.getElementById('voice-status').textContent = 'READY';
+  };
+  window.speechSynthesis.speak(utt);
+}
+
+// ══════════════════════════════════════════════
+//  VOICE INPUT — Web Speech Recognition
+// ══════════════════════════════════════════════
+let recognition = null;
+let micActive = false;
+
+function toggleMic() {
+  if (micActive) stopMic();
+  else startMic();
+}
+
+function startMic() {
+  const SpeechRecog = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecog) { alert('Speech recognition not supported in this browser. Try Chrome.'); return; }
+  recognition = new SpeechRecog();
+  recognition.continuous = false;
+  recognition.interimResults = false;
+  recognition.lang = 'en-US';
+  recognition.onstart = () => {
+    micActive = true;
+    document.getElementById('mic-btn').classList.add('active');
+    document.getElementById('voice-wave').classList.add('active');
+    document.getElementById('voice-status').textContent = 'LISTENING';
+    setMood('listening');
+  };
+  recognition.onresult = (e) => {
+    const text = e.results[0][0].transcript;
+    document.getElementById('msg-input').value = text;
+    stopMic();
+    sendMsg();
+  };
+  recognition.onerror = () => stopMic();
+  recognition.onend = () => stopMic();
+  recognition.start();
+}
+
+function stopMic() {
+  micActive = false;
+  if (recognition) { try { recognition.stop(); } catch(e){} recognition = null; }
+  document.getElementById('mic-btn').classList.remove('active');
+  document.getElementById('voice-wave').classList.remove('active');
+  document.getElementById('voice-status').textContent = 'READY';
+  if (state.mood === 'listening') setMood('idle');
+}
+
+// ══════════════════════════════════════════════
+//  CHAT UI
+// ══════════════════════════════════════════════
+async function sendMsg() {
+  const input = document.getElementById('msg-input');
+  const text = input.value.trim();
+  if (!text || state.isThinking) return;
+  input.value = '';
+
+  addMessage(text, 'user');
+  setMood('thinking');
+  setThinking(true);
+
+  const t0 = performance.now();
+  const result = await chat(text);
+  const elapsed = ((performance.now() - t0) / 1000).toFixed(2);
+
+  setThinking(false);
+  const mood = detectMood(result.reply);
+  setMood(mood);
+  addMessage(result.reply, 'ai', result.backend, elapsed);
+  state.turnCount++;
+  document.getElementById('turn-counter').textContent = `TURNS: ${state.turnCount}`;
+  document.getElementById('memory-val').textContent = state.turnCount;
+  document.getElementById('mem-bar').style.width = Math.min(state.turnCount * 10, 100) + '%';
+  document.getElementById('latency-val').textContent = elapsed + 's';
+  document.getElementById('lat-display').textContent = elapsed + 's';
+  speakText(result.reply);
+  setTimeout(() => { if (!state.isSpeaking) setMood('idle'); }, 4000);
+}
+
+function addMessage(text, role, backend, latency) {
+  const container = document.getElementById('chat-messages');
+  const div = document.createElement('div');
+  div.className = `msg ${role}`;
+  const time = new Date().toLocaleTimeString('en-US', { hour12: false, hour:'2-digit', minute:'2-digit' });
+  div.innerHTML = `
+    <div class="msg-bubble">${text}</div>
+    <div class="msg-meta">
+      ${time}
+      ${backend ? `<span class="backend-badge">${backend}</span>` : ''}
+      ${latency ? `<span style="color:var(--accent2);margin-left:4px;">⚡${latency}s</span>` : ''}
+    </div>
+  `;
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+
+function clearChat() {
+  document.getElementById('chat-messages').innerHTML = '';
+  state.history = [];
+  state.turnCount = 0;
+  document.getElementById('turn-counter').textContent = 'TURNS: 0';
+  document.getElementById('memory-val').textContent = '0';
+  document.getElementById('mem-bar').style.width = '0%';
+  document.getElementById('latency-val').textContent = '—';
+  document.getElementById('lat-display').textContent = '—';
+  addMessage('Chat cleared. Ready for new session. ✨', 'ai', 'system');
+}
+
+function setMood(mood) {
+  if (!MOODS[mood]) return;
+  state.mood = mood;
+  const m = MOODS[mood];
+  document.getElementById('mood-icon').textContent = m.icon;
+  const lbl = document.getElementById('mood-label');
+  lbl.textContent = m.label;
+  lbl.style.color = m.color;
+  lbl.style.textShadow = `0 0 10px ${m.color}`;
+  // Update eq color
+  document.querySelectorAll('.eq-bar').forEach(b => {
+    b.style.background = `linear-gradient(0deg, ${m.color}88, ${m.color})`;
+    b.style.boxShadow = `0 0 4px ${m.color}`;
+  });
+}
+
+function setThinking(v) {
+  state.isThinking = v;
+  const el = document.getElementById('thinking-indicator');
+  if (v) el.classList.add('active'); else el.classList.remove('active');
+}
+
+// ══════════════════════════════════════════════
+//  CLOCK
+// ══════════════════════════════════════════════
+function updateClock() {
+  document.getElementById('clock').textContent =
+    new Date().toLocaleTimeString('en-US', { hour12: false });
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ══════════════════════════════════════════════
+//  THREE.JS — HOLOGRAPHIC TIGER ASSISTANT
+// ══════════════════════════════════════════════
+(function initThree() {
+  const canvas = document.getElementById('three-canvas');
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+  renderer.setClearColor(0x000000, 1);
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.05;
+
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x000000);
+
+  const camera = new THREE.PerspectiveCamera(55, 1, 0.05, 25);
+  camera.position.set(0, 0.15, 0.55);
+  camera.lookAt(0, 0.05, 0);
+
+  function resize() {
+    const { clientWidth: w, clientHeight: h } = canvas.parentElement;
+    renderer.setSize(w, h);
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  // ══════════════════════════════════════════════
+  //  LIGHTS & AMBIENT
+  // ══════════════════════════════════════════════
+
+  // Ambient + cinematic lights
+  const ambientLight = new THREE.AmbientLight(0x8899ff, 0.35);
+  scene.add(ambientLight);
+
+  const keyLight = new THREE.DirectionalLight(0x00d4ff, 1.1);
+  keyLight.position.set(2.5, 3.2, 2.8);
+  scene.add(keyLight);
+
+  const fillLight = new THREE.DirectionalLight(0x7700ff, 0.55);
+  fillLight.position.set(-2.0, 1.5, 1.2);
+  scene.add(fillLight);
+
+  const rimLight = new THREE.DirectionalLight(0x00ff88, 0.32);
+  rimLight.position.set(-3.5, 2.0, -2.2);
+  scene.add(rimLight);
+
+  const pulseLight = new THREE.PointLight(0x00d4ff, 0.8, 12);
+  pulseLight.position.set(0, 1.2, 1.5);
+  scene.add(pulseLight);
+
+  // Ground circle
+  const groundGeo = new THREE.CircleGeometry(1.2, 64);
+  const groundMat = new THREE.MeshBasicMaterial({ 
+    color: 0x00d4ff, 
+    transparent: true, 
+    opacity: 0.08, 
+    side: THREE.DoubleSide 
+  });
+  const ground = new THREE.Mesh(groundGeo, groundMat);
+  ground.rotation.x = Math.PI / 2;
+  ground.position.y = -0.48;
+  scene.add(ground);
+
+  // Ring root for rotation
+  const ringRoot = new THREE.Group();
+  scene.add(ringRoot);
+
+  // Create 3 holographic rings
+  const rings = [];
+  for (let i = 0; i < 3; i++) {
+    const ringGeo = new THREE.BufferGeometry();
+    const ringSegments = 256;
+    const positions = [];
+    const r = 0.6 + i * 0.35;
+    for (let j = 0; j <= ringSegments; j++) {
+      const angle = (j / ringSegments) * Math.PI * 2;
+      positions.push(Math.cos(angle) * r, 0, Math.sin(angle) * r);
+    }
+    ringGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(positions), 3));
+    
+    const ringMat = new THREE.LineBasicMaterial({ 
+      color: 0x00d4ff,
+      linewidth: 2,
+      transparent: true,
+      opacity: 0.6
+    });
+    const ring = new THREE.Line(ringGeo, ringMat);
+    ring.position.y = 0.3;
+    ringRoot.add(ring);
+    rings.push({ mesh: ring, initialRadius: r });
+  }
+
+  // Particle system (760 particles)
+  const particleGeometry = new THREE.BufferGeometry();
+  const particleCount = 760;
+  const positions = new Float32Array(particleCount * 3);
+  const velocities = new Float32Array(particleCount * 3);
+  const sizes = new Float32Array(particleCount);
+  const colors = new Float32Array(particleCount * 3);
+
+  for (let i = 0; i < particleCount; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const r = Math.random() * 1.8 + 0.2;
+    const z = (Math.random() - 0.5) * 1.0;
+    positions[i * 3] = Math.cos(angle) * r;
+    positions[i * 3 + 1] = (Math.random() - 0.5) * 0.8;
+    positions[i * 3 + 2] = z;
+
+    velocities[i * 3] = (Math.random() - 0.5) * 0.008;
+    velocities[i * 3 + 1] = (Math.random() - 0.5) * 0.008;
+    velocities[i * 3 + 2] = (Math.random() - 0.5) * 0.008;
+
+    sizes[i] = Math.random() * 0.8 + 0.3;
+    
+    const hue = Math.random() * 0.3 + 0.5; // Cyan to blue
+    const c = new THREE.Color().setHSL(hue, 0.8, 0.55);
+    colors[i * 3] = c.r;
+    colors[i * 3 + 1] = c.g;
+    colors[i * 3 + 2] = c.b;
+  }
+
+  particleGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  particleGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  particleGeometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+
+  const particleMat = new THREE.PointsMaterial({
+    size: 0.08,
+    vertexColors: true,
+    transparent: true,
+    opacity: 0.7,
+    sizeAttenuation: true
+  });
+  const particles = new THREE.Points(particleGeometry, particleMat);
+  scene.add(particles);
+
+  // Scan plane animation
+  const scanPlaneGeo = new THREE.PlaneGeometry(4, 0.12);
+  const scanPlaneMat = new THREE.MeshBasicMaterial({
+    color: 0x00ff88,
+    transparent: true,
+    opacity: 0,
+    wireframe: false
+  });
+  const scanPlane = new THREE.Mesh(scanPlaneGeo, scanPlaneMat);
+  scanPlane.position.y = 1.5;
+  scene.add(scanPlane);
+
+  // Model root group
+  const modelRoot = new THREE.Group();
+  modelRoot.position.y = 0;
+  scene.add(modelRoot);
+
+  // ══════════════════════════════════════════════
+  //  MATERIAL ENHANCEMENT FUNCTION
+  // ══════════════════════════════════════════════
+  function enhanceMaterialsForHolographic(model) {
+    model.traverse(child => {
+      if (child.isMesh) {
+        const mat = child.material;
+        if (mat.map) mat.map.encoding = THREE.sRGBEncoding;
+        mat.emissive = new THREE.Color(0x001133);
+        mat.emissiveIntensity = 0.25;
+        mat.metalness = 0.4;
+        mat.roughness = 0.5;
+      }
+    });
+  }
+
+  // ══════════════════════════════════════════════
+  //  HOLOGRAPHIC PARTICLE FACE
+  // ══════════════════════════════════════════════
+  const faceGroup = new THREE.Group();
+  modelRoot.add(faceGroup);
+
+  const facePointCount = 1600;
+  const facePositions = new Float32Array(facePointCount * 3);
+  const faceColors = new Float32Array(facePointCount * 3);
+  const faceData = [];
+
+  for (let i = 0; i < facePointCount; i++) {
+    const u = Math.random();
+    const v = Math.random();
+    const x = (u - 0.45) * 0.58;
+    const y = (v - 0.45) * 0.95;
+
+    const curve = Math.max(0, 0.28 - (x * 1.2) * (x * 1.2) - (y * 0.86) * (y * 0.86));
+    let z = Math.sqrt(curve) * 0.52;
+    z += Math.exp(-((x * 3.4) ** 2 + ((y - 0.12) * 3.1) ** 2)) * 0.12;
+    z += Math.sin(x * 9.4 + y * 6.1) * 0.025;
+    z += Math.cos((x + y) * 7.8) * 0.018;
+    z += (Math.random() - 0.5) * 0.01;
+
+    const px = x;
+    const py = y - 0.08;
+    const pz = z;
+
+    facePositions[i * 3] = px;
+    facePositions[i * 3 + 1] = py;
+    facePositions[i * 3 + 2] = pz;
+
+    const hue = 0.58 + Math.random() * 0.09;
+    const saturation = 0.82 + Math.random() * 0.08;
+    const lightness = 0.56 + Math.random() * 0.08;
+    const color = new THREE.Color().setHSL(hue, saturation, lightness);
+    faceColors[i * 3] = color.r;
+    faceColors[i * 3 + 1] = color.g;
+    faceColors[i * 3 + 2] = color.b;
+
+    faceData.push({ x: px, y: py, z: pz });
+  }
+
+  const faceGeometry = new THREE.BufferGeometry();
+  faceGeometry.setAttribute('position', new THREE.BufferAttribute(facePositions, 3));
+  faceGeometry.setAttribute('color', new THREE.BufferAttribute(faceColors, 3));
+
+  const faceMaterial = new THREE.PointsMaterial({
+    size: 0.016,
+    vertexColors: true,
+    transparent: true,
+    opacity: 0.96,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    sizeAttenuation: true,
+  });
+
+  const facePoints = new THREE.Points(faceGeometry, faceMaterial);
+  faceGroup.add(facePoints);
+
+  const faceLinePositions = [];
+  for (let i = 0; i < facePointCount; i++) {
+    const a = faceData[i];
+    let nearest = [];
+    for (let j = 0; j < 18; j++) {
+      const idx = Math.floor(Math.random() * facePointCount);
+      if (idx === i) continue;
+      const b = faceData[idx];
+      const dist2 = (a.x - b.x) ** 2 + (a.y - b.y) ** 2 + (a.z - b.z) ** 2;
+      if (dist2 < 0.045) nearest.push({ idx, dist2 });
+    }
+    nearest.sort((p, q) => p.dist2 - q.dist2);
+    for (let k = 0; k < Math.min(3, nearest.length); k++) {
+      const b = faceData[nearest[k].idx];
+      faceLinePositions.push(a.x, a.y, a.z, b.x, b.y, b.z);
+    }
+  }
+
+  const faceLineGeometry = new THREE.BufferGeometry();
+  faceLineGeometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(faceLinePositions), 3));
+
+  const faceLineMaterial = new THREE.LineBasicMaterial({
+    color: 0x86d4ff,
+    transparent: true,
+    opacity: 0.32,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+  });
+
+  const faceLines = new THREE.LineSegments(faceLineGeometry, faceLineMaterial);
+  faceGroup.add(faceLines);
+
+  const haloParticleCount = 220;
+  const haloPositions = new Float32Array(haloParticleCount * 3);
+  const haloColors = new Float32Array(haloParticleCount * 3);
+  for (let i = 0; i < haloParticleCount; i++) {
+    const theta = Math.random() * Math.PI * 2;
+    const phi = Math.acos(1 - Math.random() * 0.72);
+    const radius = 0.9 + Math.random() * 0.26;
+    haloPositions[i * 3] = Math.cos(theta) * Math.sin(phi) * radius;
+    haloPositions[i * 3 + 1] = Math.cos(phi) * radius * 0.85;
+    haloPositions[i * 3 + 2] = Math.sin(theta) * Math.sin(phi) * radius;
+    const color = new THREE.Color().setHSL(0.61 + Math.random() * 0.08, 0.75, 0.55);
+    haloColors[i * 3] = color.r;
+    haloColors[i * 3 + 1] = color.g;
+    haloColors[i * 3 + 2] = color.b;
+  }
+
+  const haloGeometry = new THREE.BufferGeometry();
+  haloGeometry.setAttribute('position', new THREE.BufferAttribute(haloPositions, 3));
+  haloGeometry.setAttribute('color', new THREE.BufferAttribute(haloColors, 3));
+
+  const haloMaterial = new THREE.PointsMaterial({
+    size: 0.02,
+    vertexColors: true,
+    transparent: true,
+    opacity: 0.72,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    sizeAttenuation: true,
+  });
+
+  const haloParticles = new THREE.Points(haloGeometry, haloMaterial);
+  faceGroup.add(haloParticles);
+
+  let faceTime = 0;
+  function updateHolographicFace() {
+    faceTime += 0.01;
+    const posAttr = faceGeometry.attributes.position;
+    const positions = posAttr.array;
+    for (let i = 0; i < facePointCount; i++) {
+      const idx = i * 3;
+      const base = faceData[i];
+      const wave = Math.sin(base.x * 10 + base.y * 6 + faceTime * 2.8) * 0.032;
+      const pulse = Math.cos(base.y * 7 + faceTime * 1.6) * 0.014;
+      positions[idx + 2] = base.z + wave + pulse;
+      positions[idx] = base.x + Math.sin(faceTime * 0.9 + base.y * 4) * 0.006;
+      positions[idx + 1] = base.y + Math.cos(faceTime * 0.7 + base.x * 3) * 0.006;
+    }
+    posAttr.needsUpdate = true;
+    haloGeometry.attributes.position.needsUpdate = true;
+    haloParticles.rotation.y = faceTime * 0.08;
+    haloParticles.rotation.x = Math.sin(faceTime * 0.14) * 0.1;
+  }
+
+  // Glow sphere (aura/backside glow)
+  const glowSphereGeo = new THREE.IcosahedronGeometry(1.0, 16);
+  const glowSphereMat = new THREE.MeshBasicMaterial({
+    color: 0x00d4ff,
+    transparent: true,
+    opacity: 0.08,
+    side: THREE.BackSide
+  });
+  const glowSphere = new THREE.Mesh(glowSphereGeo, glowSphereMat);
+  modelRoot.add(glowSphere);
+
+  // ══════════════════════════════════════════════
+  //  ANIMATION LOOP
+  // ══════════════════════════════════════════════
+  let hoverX = 0, hoverY = 0;
+  let t = 0;
+  let blinkTimer = 0;
+  let mouthOpen = 0;
+
+  function animate() {
+    requestAnimationFrame(animate);
+    t += 0.0095;
+    blinkTimer += 0.0095;
+
+    // ──── BLINK ANIMATION (random 3-5 second blinks) ────
+    const blinkPattern = Math.sin(blinkTimer * 0.6) * 0.5 + 0.5;
+    const blinkIntensity = blinkPattern < 0.08 ? (1 - blinkPattern / 0.08) : 0;
+
+    // ──── MOUTH ANIMATION (talking = head tilt + jaw movement) ────
+    if (state.isSpeaking) {
+      mouthOpen = Math.sin(t * 5.5) * 0.5 + 0.5;
+    } else {
+      mouthOpen *= 0.92;
+    }
+
+    // ══════════════════════════════════════════════
+    //  HOLOGRAPHIC PARTICLE FACE ANIMATION
+    // ══════════════════════════════════════════════
+    if (faceGroup) {
+      updateHolographicFace();
+      faceGroup.rotation.y = Math.sin(t * 0.18) * 0.18 - 0.35;
+      faceGroup.rotation.x = Math.sin(t * 0.11) * 0.06;
+      faceGroup.position.x = -0.04;
+      faceGroup.position.y = 0.06;
+      faceGroup.scale.setScalar(1.02 + Math.sin(t * 0.18) * 0.012);
+    }
+
+    // ──── FLOATING & BREATHING ────
+    const floatOffset = Math.sin(t * 0.6) * 0.008;
+    const breatheScale = 1.0 + Math.sin(t * 1.5) * 0.008;
+    let speakPulse = state.isSpeaking ? Math.sin(t * 6.5) * 0.06 + 1.06 : 1.0;
+    let listenGlow = state.isListening ? 0.5 : 0;
+
+    // Scale already handled in blink section above
+    // Apply transforms to VRM avatar
+
+    // ──── LIGHT UPDATES ────
+    keyLight.intensity = 1.0 + (state.isSpeaking ? 0.25 : 0) + blinkIntensity * 0.1;
+    fillLight.color.setHex(state.isListening ? 0xff00aa : 0x7700ff);
+    pulseLight.intensity = 0.7 + (mouthOpen * 0.3);
+
+    // ──── MOOD-BASED COLORS ────
+    let moodColor = 0x00d4ff;
+    const currentMood = MOODS[state.mood] || MOODS['idle'];
+    const moodHex = currentMood.color.replace('#', '0x');
+    moodColor = parseInt(moodHex);
+
+    for (let ring of rings) {
+      ring.mesh.material.color.setHex(moodColor);
+      ring.mesh.material.opacity = 0.4 + Math.sin(t * 0.5) * 0.2;
+    }
+
+    // ──── PARTICLE UPDATES ────
+    const posAttr = particleGeometry.getAttribute('position');
+    const positions = posAttr.array;
+    for (let i = 0; i < particleCount; i++) {
+      let vx = velocities[i * 3];
+      let vy = velocities[i * 3 + 1];
+      let vz = velocities[i * 3 + 2];
+
+      if (state.isSpeaking) {
+        vx *= 2.5;
+        vy *= 2.5;
+        vz *= 2.5;
+      }
+
+      positions[i * 3] += vx;
+      positions[i * 3 + 1] += vy;
+      positions[i * 3 + 2] += vz;
+
+      // Wraparound
+      if (Math.abs(positions[i * 3]) > 2.5) positions[i * 3] *= -0.98;
+      if (Math.abs(positions[i * 3 + 1]) > 1.5) positions[i * 3 + 1] *= -0.98;
+      if (Math.abs(positions[i * 3 + 2]) > 1.5) positions[i * 3 + 2] *= -0.98;
+    }
+    posAttr.needsUpdate = true;
+
+    // ──── RING ROTATION ────
+    ringRoot.rotation.y += 0.0008;
+    ringRoot.rotation.x = Math.sin(t * 0.25) * 0.08;
+
+    // ──── GLOW SPHERE PULSE ----
+    glowSphere.material.opacity = 0.08 + Math.sin(t * 2.2) * 0.04 + (state.isThinking ? 0.08 : 0);
+
+    // ──── SCAN PLANE ANIMATION ────
+    scanPlane.position.y = 1.5 - (t % 3.0) * 0.5;
+    scanPlane.material.opacity = Math.max(0, 0.3 - Math.abs((t % 3.0) - 1.5) * 0.3);
+
+    resize();
+    renderer.render(scene, camera);
+  }
+  animate();
+
+  // ══════════════════════════════════════════════
+  //  MOUSE TRACKING
+  // ══════════════════════════════════════════════
+  document.getElementById('center').addEventListener('mousemove', e => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const mx = (e.clientX - rect.left - rect.width/2) / (rect.width/2);
+    const my = (e.clientY - rect.top - rect.height/2) / (rect.height/2);
+    hoverX = mx * 0.8;
+    hoverY = -my * 0.6;
+  });
+})();
+
+// ══════════════════════════════════════════════
+//  EQUALIZER ANIMATION
+// ══════════════════════════════════════════════
+(function initEQ() {
+  const eq = document.getElementById('equalizer');
+  for (let i = 0; i < 22; i++) {
+    const b = document.createElement('div');
+    b.className = 'eq-bar';
+    b.style.height = '4px';
+    eq.appendChild(b);
+  }
+  function animEQ() {
+    const bars = eq.querySelectorAll('.eq-bar');
+    const active = ['speaking','listening','thinking'].includes(state.mood);
+    bars.forEach((b, i) => {
+      const target = active
+        ? 4 + Math.random() * 42
+        : 4 + Math.abs(Math.sin((i / bars.length * Math.PI) + Date.now() * 0.002)) * 14;
+      b.style.height = target + 'px';
+    });
+    requestAnimationFrame(animEQ);
+  }
+  animEQ();
+})();
+
+// ══════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════
+window.speechSynthesis?.getVoices(); // preload
+</script>
+</body>
+</html>
