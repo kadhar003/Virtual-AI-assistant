@@ -69,7 +69,7 @@ class AIBackend:
         self.history: list[dict] = []
         self.use_openrouter = bool(OPENROUTER_API_KEY)
 
-    def chat(self, user_msg: str, backend: str = "auto", history: list = None) -> tuple[str, str]:
+    def chat(self, user_msg: str, backend: str = "auto", history: list = None, model: str = None) -> tuple[str, str]:
         """Returns (reply_text, backend_used)"""
         if history is not None:
             local_history = list(history)
@@ -83,7 +83,7 @@ class AIBackend:
 
         reply, used = "", "unknown"
         if backend in ("auto", "openrouter") and self.use_openrouter and HAS_REQUESTS:
-            reply, used = self._openrouter(user_msg, local_history)
+            reply, used = self._openrouter(user_msg, local_history, model)
         if not reply and backend in ("auto", "ollama") and HAS_REQUESTS:
             reply, used = self._ollama(user_msg, local_history)
         if not reply:
@@ -93,9 +93,9 @@ class AIBackend:
             self.history.append({"role": "assistant", "content": reply})
         return reply, used
 
-    def _openrouter(self, msg: str, history: list) -> tuple[str, str]:
+    def _call_openrouter_api(self, model: str, messages: list) -> tuple[str, str]:
         try:
-            messages = [{"role": "system", "content": SYSTEM_PROMPT}] + history
+            print(f"[OpenRouter] Requesting model: {model}")
             r = requests.post(
                 OPENROUTER_URL,
                 headers={
@@ -103,13 +103,54 @@ class AIBackend:
                     "Content-Type": "application/json",
                     "HTTP-Referer": "https://nexus-ai-assistant.local",
                 },
-                json={"model": OPENROUTER_MODEL, "messages": messages, "max_tokens": 300},
+                json={"model": model, "messages": messages, "max_tokens": 300},
                 timeout=15,
             )
+            if r.status_code != 200:
+                print(f"[OpenRouter] API Error {r.status_code}: {r.text}")
+                return "", ""
             data = r.json()
-            return data["choices"][0]["message"]["content"].strip(), "OpenRouter"
-        except Exception:
-            return "", ""
+            if "choices" in data and len(data["choices"]) > 0:
+                content = data["choices"][0]["message"]["content"].strip()
+                if content:
+                    model_used = data.get("model", model)
+                    if "/" in model_used:
+                        model_used = model_used.split("/")[-1]
+                    return content, model_used.upper()
+            else:
+                print(f"[OpenRouter] Unexpected response format: {data}")
+        except Exception as e:
+            import traceback
+            print(f"[OpenRouter] Exception calling API: {e}")
+            traceback.print_exc()
+        return "", ""
+
+    def _openrouter(self, msg: str, history: list, model: str = None) -> tuple[str, str]:
+        # Filter messages to ensure only valid keys ('role', 'content') are sent
+        clean_messages = []
+        for m in history:
+            clean_messages.append({
+                "role": m.get("role", "user"),
+                "content": m.get("content", "")
+            })
+            
+        selected_model = model if model else OPENROUTER_MODEL
+        if not selected_model:
+            selected_model = "openai/gpt-3.5-turbo"
+
+        # Try selected model
+        reply, used = self._call_openrouter_api(selected_model, clean_messages)
+        if reply:
+            return reply, used
+
+        # Fallback to free models router if it fails
+        if selected_model != "openrouter/free":
+            print(f"[OpenRouter] Primary model '{selected_model}' failed. Trying fallback 'openrouter/free'...")
+            reply, used = self._call_openrouter_api("openrouter/free", clean_messages)
+            if reply:
+                return reply, f"{used} (FALLBACK)"
+
+        return "", ""
 
     def _ollama(self, msg: str, history: list) -> tuple[str, str]:
         try:
@@ -251,10 +292,11 @@ if HAS_FLASK:
         user_msg = data.get("message", "")
         backend  = data.get("backend", "auto")
         history  = data.get("history", None)
+        model    = data.get("model", None)
         if not user_msg:
             return jsonify({"error": "No message"}), 400
         t0 = time.time()
-        reply, used = ai.chat(user_msg, backend, history)
+        reply, used = ai.chat(user_msg, backend, history, model)
         elapsed = round(time.time() - t0, 2)
         mood = ai.detect_mood(reply)
         return jsonify({"reply": reply, "backend": used, "mood": mood, "latency": elapsed})
