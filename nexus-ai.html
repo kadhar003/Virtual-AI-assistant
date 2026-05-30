@@ -845,6 +845,7 @@ let state = {
   backend: 'openrouter',
   turnCount: 0,
   lastLatency: null,
+  useServerBackend: false,
 };
 
 // ══════════════════════════════════════════════
@@ -884,6 +885,57 @@ function updateBackendLabel() {
 // ══════════════════════════════════════════════
 //  AI BACKEND (mirrors Python logic)
 // ══════════════════════════════════════════════
+async function checkServerConfig() {
+  try {
+    const res = await fetch('/api/config');
+    if (res.ok) {
+      const data = await res.json();
+      if (data.has_openrouter) {
+        state.useServerBackend = true;
+        state.backend = 'openrouter';
+        state.model = data.model || CONFIG.OPENROUTER_MODEL;
+        
+        // Hide modal
+        document.getElementById('api-modal').classList.add('hidden');
+        
+        // Update labels
+        document.getElementById('model-label').textContent = (state.model.split('/')[1] || state.model).toUpperCase();
+        updateBackendLabel();
+        
+        addMessage('Hello! I\'m NEXUS ✨ — your holographic AI companion. Connected to server-side OpenRouter backend!', 'ai', 'OpenRouter');
+        setMood('happy');
+        setTimeout(() => setMood('idle'), 3000);
+        return;
+      }
+    }
+  } catch (e) {
+    console.log("Running in standalone/client mode:", e);
+  }
+}
+
+async function callServerChat(userMsg) {
+  try {
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ 
+        message: userMsg, 
+        backend: state.backend,
+        history: state.history 
+      }),
+    });
+    const data = await res.json();
+    if (data.reply) {
+      return { reply: data.reply, backend: data.backend || 'OpenRouter' };
+    }
+  } catch (e) {
+    console.error('Server chat error:', e);
+  }
+  return null;
+}
+
 async function callOpenRouter(userMsg) {
   if (!state.apiKey) return null;
   const messages = [{ role:'system', content: SYSTEM_PROMPT }, ...state.history];
@@ -952,8 +1004,13 @@ async function chat(userMsg) {
   if (state.history.length > 20) state.history = state.history.slice(-20);
 
   let result = null;
-  if (state.backend === 'openrouter') result = await callOpenRouter(userMsg);
-  if (!result && state.backend === 'ollama') result = await callOllama(userMsg);
+  if (state.useServerBackend && state.backend !== 'fallback') {
+    result = await callServerChat(userMsg);
+  } else {
+    if (state.backend === 'openrouter') result = await callOpenRouter(userMsg);
+    if (!result && state.backend === 'ollama') result = await callOllama(userMsg);
+  }
+
   if (!result) {
     const [r, b] = fallbackReply(userMsg);
     result = { reply: r, backend: b };
@@ -1088,6 +1145,9 @@ function clearChat() {
   document.getElementById('latency-val').textContent = '—';
   document.getElementById('lat-display').textContent = '—';
   addMessage('Chat cleared. Ready for new session. ✨', 'ai', 'system');
+  if (state.useServerBackend) {
+    fetch('/api/clear', { method: 'POST' }).catch(e => console.error(e));
+  }
 }
 
 function setMood(mood) {
@@ -1591,6 +1651,7 @@ updateClock();
 //  INIT
 // ══════════════════════════════════════════════
 window.speechSynthesis?.getVoices(); // preload
+checkServerConfig();
 </script>
 </body>
 </html>

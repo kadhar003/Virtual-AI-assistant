@@ -69,26 +69,33 @@ class AIBackend:
         self.history: list[dict] = []
         self.use_openrouter = bool(OPENROUTER_API_KEY)
 
-    def chat(self, user_msg: str, backend: str = "auto") -> tuple[str, str]:
+    def chat(self, user_msg: str, backend: str = "auto", history: list = None) -> tuple[str, str]:
         """Returns (reply_text, backend_used)"""
-        self.history.append({"role": "user", "content": user_msg})
-        if len(self.history) > 20:
-            self.history = self.history[-20:]
+        if history is not None:
+            local_history = list(history)
+            if not local_history or local_history[-1].get("content") != user_msg:
+                local_history.append({"role": "user", "content": user_msg})
+        else:
+            self.history.append({"role": "user", "content": user_msg})
+            if len(self.history) > 20:
+                self.history = self.history[-20:]
+            local_history = self.history
 
         reply, used = "", "unknown"
         if backend in ("auto", "openrouter") and self.use_openrouter and HAS_REQUESTS:
-            reply, used = self._openrouter(user_msg)
+            reply, used = self._openrouter(user_msg, local_history)
         if not reply and backend in ("auto", "ollama") and HAS_REQUESTS:
-            reply, used = self._ollama(user_msg)
+            reply, used = self._ollama(user_msg, local_history)
         if not reply:
             reply, used = self._fallback(user_msg), "built-in"
 
-        self.history.append({"role": "assistant", "content": reply})
+        if history is None:
+            self.history.append({"role": "assistant", "content": reply})
         return reply, used
 
-    def _openrouter(self, msg: str) -> tuple[str, str]:
+    def _openrouter(self, msg: str, history: list) -> tuple[str, str]:
         try:
-            messages = [{"role": "system", "content": SYSTEM_PROMPT}] + self.history
+            messages = [{"role": "system", "content": SYSTEM_PROMPT}] + history
             r = requests.post(
                 OPENROUTER_URL,
                 headers={
@@ -104,11 +111,11 @@ class AIBackend:
         except Exception:
             return "", ""
 
-    def _ollama(self, msg: str) -> tuple[str, str]:
+    def _ollama(self, msg: str, history: list) -> tuple[str, str]:
         try:
             context = "\n".join(
                 f"{'User' if m['role']=='user' else 'NEXUS'}: {m['content']}"
-                for m in self.history[-6:]
+                for m in history[-6:]
             )
             prompt = f"{SYSTEM_PROMPT}\n\n{context}"
             r = requests.post(
@@ -243,13 +250,19 @@ if HAS_FLASK:
         data     = request.get_json(force=True)
         user_msg = data.get("message", "")
         backend  = data.get("backend", "auto")
+        history  = data.get("history", None)
         if not user_msg:
             return jsonify({"error": "No message"}), 400
         t0 = time.time()
-        reply, used = ai.chat(user_msg, backend)
+        reply, used = ai.chat(user_msg, backend, history)
         elapsed = round(time.time() - t0, 2)
         mood = ai.detect_mood(reply)
         return jsonify({"reply": reply, "backend": used, "mood": mood, "latency": elapsed})
+
+    @app.route('/api/clear', methods=['POST'])
+    def http_clear():
+        ai.clear()
+        return jsonify({"status": "success", "message": "Memory cleared."})
 
 
 def main():
