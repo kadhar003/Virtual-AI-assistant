@@ -3,6 +3,7 @@
 # Core (required)
 Flask>=2.0
 flask-sock>=0.6.0
+gunicorn>=20.1.0          # WSGI server for production deploy
 requests>=2.31.0          # HTTP calls to OpenRouter & Ollama
 python-dotenv>=1.0.0      # Load environment variables from .env file
 
@@ -11,7 +12,7 @@ pyttsx3>=2.90             # Local TTS (no API key needed)
 
 # Speech Recognition (optional)
 SpeechRecognition>=3.10.0 # Google STT (free, no key)
-# pyaudio>=0.2.13         # Microphone input driver (optional; remove for Render deploy)
+#pyaudio>=0.2.13         # Microphone input driver (optional; remove for Render deploy)
 
 # Optional: faster local model via Ollama
 # Install Ollama from https://ollama.ai  then run:
