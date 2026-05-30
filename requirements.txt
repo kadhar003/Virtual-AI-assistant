@@ -17,3 +17,5 @@ SpeechRecognition>=3.10.0 # Google STT (free, no key)
 # Optional: faster local model via Ollama
 # Install Ollama from https://ollama.ai  then run:
 #   ollama pull tinyllama
+
+openai

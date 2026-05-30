@@ -307,16 +307,18 @@ if HAS_FLASK:
         return jsonify({"status": "success", "message": "Memory cleared."})
 
 
+
 def main():
     if not HAS_FLASK:
         print("Install Flask: pip install flask flask-sock python-dotenv requests")
         return
     print("""
 ╔══════════════════════════════════════════════════╗
-║  NEXUS AI Server v2.0 — Starting                ║
+║  NEXUS AI Server v2.0 — Starting                 ║
 ║  Open: http://localhost:5000                     ║
 ╚══════════════════════════════════════════════════╝
 """)
+    port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=5000, debug=False)
 
 
